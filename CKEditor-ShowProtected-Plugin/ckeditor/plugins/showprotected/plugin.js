@@ -13,7 +13,7 @@
 // TODO: improve copy/paste behavior (tooltip is wrong after paste)
 
 CKEDITOR.plugins.add( 'showprotected', {
-	requires: 'dialog,fakeobjects',
+	requires: 'dialog',
 	onLoad: function() {
 		// Add the CSS styles for protected source placeholders.
 		var iconPath = CKEDITOR.getUrl( this.path + 'images' + '/code.gif' ),
@@ -54,22 +54,43 @@ CKEDITOR.plugins.add( 'showprotected', {
 		// Register a filter to displaying placeholders after mode change.
 
 		var dataProcessor = editor.dataProcessor,
-			dataFilter = dataProcessor && dataProcessor.dataFilter;
+			dataFilter = dataProcessor && dataProcessor.dataFilter,
+			htmlFilter = dataProcessor && dataProcessor.htmlFilter;
 
+		// add a rule to put a placeholder image next to every protected source region
 		if ( dataFilter ) {
 			dataFilter.addRules( {
-				comment: function( commentText, commentElement ) {
+				comment: function( commentText, commentElement, abc ) {
 					if(commentText.indexOf(CKEDITOR.plugins.showprotected.protectedSourceMarker) == 0) {
 						commentElement.attributes = [];
-						var fakeElement = editor.createFakeParserElement( commentElement, 'cke_protected', 'protected' );
-						
+
 						var cleanedCommentText = CKEDITOR.plugins.showprotected.decodeProtectedSource( commentText );
-						fakeElement.attributes.title = fakeElement.attributes.alt = cleanedCommentText;
 						
-						return fakeElement;
+						var fakeElement = new CKEDITOR.htmlParser.element( 'img', {
+							'class': 'cke_protected',
+							'data-cke-showprotected-temp': true,
+							alt: cleanedCommentText,
+							title: cleanedCommentText
+						} );
+						fakeElement.insertAfter(commentElement);
+						
+						return commentText;
 					}
 					
 					return null;
+				}
+			} );
+		}
+		
+		// add a rule to remove the placeholder image from the raw HTML
+		if ( htmlFilter ) {
+			htmlFilter.addRules( {
+				elements: {
+					$: function( element ) {
+						if(element.attributes['data-cke-showprotected-temp']) {
+							return false;
+						}
+					}
 				}
 			} );
 		}
@@ -97,9 +118,8 @@ CKEDITOR.plugins.showprotected = {
 	},
 	
 	encodeProtectedSource: function( protectedSource ) {
-		return '<!--' + CKEDITOR.plugins.showprotected.protectedSourceMarker +
-        	encodeURIComponent( protectedSource ).replace( /--/g, '%2D%2D' ) +
-        	'-->';
+		return CKEDITOR.plugins.showprotected.protectedSourceMarker +
+        	encodeURIComponent( protectedSource ).replace( /--/g, '%2D%2D' );
 	}
 	
 };
