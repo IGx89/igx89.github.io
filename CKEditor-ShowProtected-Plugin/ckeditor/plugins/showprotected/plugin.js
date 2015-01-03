@@ -87,6 +87,24 @@ CKEDITOR.plugins.add( 'showprotected', {
 			htmlFilter.addRules( {
 				elements: {
 					$: function( element ) {
+						// If the placeholder image was put under a parent where img's aren't valid (like table.tbody.tr), CKEditor moves it up.
+						// When it moves all the way up to root, it creates a new <p> element to contain the img. This code here removes that <p> element.
+						if(element.name == 'p' && element.children.length > 0) {
+							var allChildrenAreTemps = true;
+							
+							for(var i=0; i<element.children.length; i++) {
+								if(!element.children[i].attributes || !element.children[i].attributes['data-cke-showprotected-temp']) {
+									allChildrenAreTemps = false;
+									break;
+								}
+							}
+							
+							if(allChildrenAreTemps) {
+								return false;
+							}
+						}
+						
+						// remove the placeholder image so it doesn't show in the source code
 						if(element.attributes['data-cke-showprotected-temp']) {
 							return false;
 						}
